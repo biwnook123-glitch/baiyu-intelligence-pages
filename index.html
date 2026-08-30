@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="个人情报中枢：今日情报、关键信号、持续追踪与简报档案。" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content="#0b1530" />
+    <title>情报中枢｜个人情报台</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="redesign.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主导航">
+        <div class="brand-block">
+          <div class="radar-mark" aria-hidden="true"><span></span></div>
+          <div><p class="brand-kicker">个人情报</p><h1>情报中枢</h1></div>
+        </div>
+        <nav class="nav-list" aria-label="网站视图">
+          <button class="nav-item active" type="button" data-view="today"><span>今天</span></button>
+          <button class="nav-item" type="button" data-view="saved"><span>稍后看</span><b id="savedCount">0</b></button>
+          <button class="nav-item" type="button" data-view="watchlist"><span>追踪</span><b>03</b></button>
+          <button class="nav-item" type="button" data-view="briefs"><span>归档</span><b>03</b></button>
+        </nav>
+        <div class="sidebar-section">
+          <p class="sidebar-label">按主题看</p>
+          <button type="button" data-channel="中国"><span>中国</span><i>0条</i></button>
+          <button type="button" data-channel="世界"><span>世界</span><i>0条</i></button>
+          <button type="button" data-channel="AI"><span>AI</span><i>0条</i></button>
+          <button type="button" data-channel="直销"><span>直销</span><i>0条</i></button>
+        </div>
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          <div><strong id="sidebarMode">历史样例</strong><small>每天 08:00 更新</small></div>
+        </div>
+      </aside>
+
+      <main id="main" class="main-content">
+        <header class="topbar">
+          <div><p class="eyebrow" id="pageDate">2026年8月28日</p><h2 id="pageTitle">今天</h2></div>
+          <div class="topbar-actions">
+            <label class="search-box"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="搜索情报" autocomplete="off" /><kbd>⌘ K</kbd></label>
+            <button class="system-button" type="button" id="systemButton"><span></span>更新状态</button>
+          </div>
+        </header>
+
+        <section class="data-banner" aria-label="数据状态">
+          <div><span class="data-badge">演示阶段</span><strong>当前页面不是实时新闻</strong></div>
+          <p id="dataNote">内容用于验证阅览与管理流程，正式采集尚未接入。</p>
+          <button type="button" id="dataInfoButton">查看边界</button>
+        </section>
+
+        <section class="view-panel active" data-panel="today" aria-labelledby="today-heading">
+          <article class="daily-summary">
+            <div class="brief-body">
+              <div class="summary-meta"><strong id="briefLabel">今日情报摘要</strong><time id="briefVersion">v0.4</time></div>
+              <p class="brief-question">今天的判断</p>
+              <h3 id="managerVerdict"></h3>
+              <p class="brief-context" id="managerContext"></p>
+              <div class="brief-actions"><button type="button" class="primary-button" id="readBriefButton">展开摘要</button><button type="button" class="text-button" data-jump="signals">看全部事件 ↓</button></div>
+            </div>
+            <aside class="channel-pulse" aria-label="本期内容覆盖">
+              <p class="panel-kicker">今天覆盖</p>
+              <div id="channelPulse"></div>
+              <p class="pulse-note">没有值得说的变化，就不凑数。</p>
+            </aside>
+          </article>
+
+          <section class="must-read-section" aria-labelledby="today-heading">
+            <div class="section-heading compact"><div><p class="eyebrow">优先阅读</p><h3 id="today-heading">先看这三件事</h3></div><p>按重要性排序</p></div>
+            <div class="must-read-grid" id="mustReadGrid"></div>
+          </section>
+
+          <section id="signals" class="content-section">
+            <div class="section-heading">
+              <div><p class="eyebrow">全部事件</p><h3>还有这些值得知道</h3></div>
+              <div class="filter-pills" role="group" aria-label="筛选关键信号">
+                <button class="filter-pill active" type="button" data-filter="全部">全部</button>
+                <button class="filter-pill" type="button" data-filter="中国">中国</button>
+                <button class="filter-pill" type="button" data-filter="世界">世界</button>
+                <button class="filter-pill" type="button" data-filter="AI">AI</button>
+                <button class="filter-pill" type="button" data-filter="直销">直销</button>
+              </div>
+            </div>
+            <div class="signal-grid" id="signalGrid"></div>
+            <p class="empty-state" id="signalEmpty" hidden>这个频道目前没有匹配的情报。</p>
+          </section>
+        </section>
+
+        <section class="view-panel" data-panel="saved" aria-labelledby="saved-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">稍后看</p><h3 id="saved-heading">你留存的情报</h3></div><p>需要慢一点阅读或以后再处理的内容放在这里。</p></div>
+          <div class="signal-grid" id="savedSignalGrid"></div>
+          <p class="empty-state" id="savedEmpty" hidden>还没有留存内容。在任意事件上点“稍后看”即可加入。</p>
+        </section>
+
+        <section class="view-panel" data-panel="channels" aria-labelledby="channels-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">CHANNELS</p><h3 id="channels-heading">情报频道</h3></div><p>按你关心的领域分开查看。频道会根据你的实际阅读价值调整，不要求固定不变。</p></div>
+          <div class="channel-grid" id="channelGrid"></div>
+          <aside class="expansion-note"><span>你的频道</span><p>你可以随时要求新增、合并或停止一个频道。网站结构服务于你的关注重点，不服务于后台分工。</p></aside>
+        </section>
+
+        <section class="view-panel" data-panel="watchlist" aria-labelledby="watch-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">WATCHLIST</p><h3 id="watch-heading">我的追踪</h3></div><p>只保留你决定继续关注的事情，并直接回答“相较上次发生了什么变化”。</p></div>
+          <div class="watch-list" id="watchList"></div>
+        </section>
+
+        <section class="view-panel" data-panel="briefs" aria-labelledby="briefs-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">BRIEF ARCHIVE</p><h3 id="briefs-heading">简报档案</h3></div><p>正式日报、周报和专题简报会在这里形成可搜索、可比较的时间线。</p></div>
+          <div class="archive-list" id="briefList"></div>
+          <div class="empty-inventory"><span>阅读说明</span><strong>这里保存正式简报</strong><p>每日内容会进入时间线；迁移历史仅作为研究基线，避免与已经核验的正式情报混在一起。</p></div>
+        </section>
+
+        <section class="view-panel" data-panel="sources" aria-labelledby="sources-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">EVIDENCE</p><h3 id="sources-heading">证据来源</h3></div><p>当你想核对判断时，可以在这里了解来源等级；它说明“能证明什么”，不是媒体排行榜。</p></div>
+          <div class="source-grid" id="sourceGrid"></div>
+          <section class="evidence-legend">
+            <div><span class="signal-badge confirmed">已确认事实</span><p>能够追溯到一手材料或可靠数据。</p></div>
+            <div><span class="signal-badge judgment">分析判断</span><p>基于事实作出的解释，明确保留不确定性。</p></div>
+            <div><span class="signal-badge emerging">弱信号</span><p>值得观察但证据不足，不进入重大结论。</p></div>
+          </section>
+        </section>
+
+        <section class="view-panel search-panel" data-panel="search" aria-labelledby="search-heading" hidden>
+          <div class="view-intro"><div><p class="eyebrow">SEARCH</p><h3 id="search-heading">搜索结果</h3></div><p id="searchSummary"></p></div>
+          <div class="search-results" id="searchResults"></div>
+        </section>
+
+        <footer class="page-footer"><span>情报中枢 · <b id="footerVersion">v0.4</b></span><span>为你筛选、聚合和持续追踪</span></footer>
+      </main>
+    </div>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <aside class="detail-drawer" id="detailDrawer" aria-label="情报详情" aria-hidden="true">
+      <div class="drawer-header"><div><p class="eyebrow" id="drawerKicker">DETAIL</p><span id="drawerBadge"></span></div><button type="button" id="closeDrawer" aria-label="关闭详情">×</button></div>
+      <div class="drawer-content" id="drawerContent"></div>
+    </aside>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="content.js"></script>
+    <script src="data/archive.js"></script>
+    <script src="data/current.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
