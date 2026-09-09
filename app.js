@@ -18,9 +18,9 @@ function persist() {try {localStorage.setItem('intel-read',JSON.stringify([...st
 function allSignals() {return [...new Map([...Object.values(state.snapshots),...(feed.signals||[]),...feed.current.signals].map(s=>[s.id,s])).values()];}
 function signal(id) {return allSignals().find(s=>s.id===id);}
 function remember(s) {state.snapshots[s.id]={...s,date:s.date||feed.publishedDate};}
-function tag(s) {return `<span class="tag ${s.tier==='雷达'?'radar':''}">${esc(s.category)} · ${esc(s.tier||'情报')}</span>`;}
+function tag(s) {return `<span class="tag ${s.tier==='雷达'?'radar':''}">${esc(s.category)} · ${esc(s.timeKind==='context'?'背景深读':s.tier||'情报')}</span>`;}
 function actions(s) {const follow=state.feedback[s.id]==='follow';return `<button data-save="${esc(s.id)}" aria-pressed="${state.saved.has(s.id)}">${state.saved.has(s.id)?'已留存':'稍后读'}</button><button data-follow="${esc(s.id)}" aria-pressed="${follow}">${follow?'已关注':'关注后续'}</button>`;}
-function card(s,{featured=false}={}) {return `<article class="story ${featured?'lead-story':''} ${state.read.has(s.id)?'known':''}"><div class="story-meta">${tag(s)}<span>${esc(s.statusLabel||'')}</span></div><button class="story-open" data-signal="${esc(s.id)}"><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p></button>${featured?`<div class="why"><span>为什么重要</span><p>${esc(s.impact)}</p></div>`:''}<div class="story-bottom"><span>${s.evidence?.length||0} 个来源${state.read.has(s.id)?' · 已读':''}</span><div>${actions(s)}<button class="read-link" data-signal="${esc(s.id)}">阅读全文 ↗</button></div></div></article>`;}
+function card(s,{featured=false}={}) {return `<article class="story ${featured?'lead-story':''} ${state.read.has(s.id)?'known':''}"><div class="story-meta">${tag(s)}<span>${esc(s.timeLabel||s.statusLabel||'')}</span></div><button class="story-open" data-signal="${esc(s.id)}"><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p></button>${featured?`<div class="why"><span>为什么重要</span><p>${esc(s.impact)}</p></div>`:''}<div class="story-bottom"><span>${s.evidence?.length||0} 个来源${state.read.has(s.id)?' · 已读':''}</span><div>${actions(s)}<button class="read-link" data-signal="${esc(s.id)}">阅读全文 ↗</button></div></div></article>`;}
 function empty(title,detail) {return `<div class="empty"><span aria-hidden="true">—</span><h3>${esc(title)}</h3><p>${esc(detail)}</p><button data-view="today">返回今日精选</button></div>`;}
 function header(title,detail='') {return `<div class="page-heading"><h1>${esc(title)}</h1>${detail?`<p>${esc(detail)}</p>`:''}</div>`;}
 function reportRow(r) {const summary=r.body.split('\n').find(l=>l.length>45&&!/^[#>\-|]/.test(l))||'';return `<button class="report-row" data-report="${esc(r.id)}"><time>${esc(r.date)}</time><div><h3>${esc(r.title.split('｜')[0])}</h3><p>${esc(summary)}</p></div><span>读全文 ↗</span></button>`;}
@@ -29,6 +29,7 @@ function today() {
  const priority=c.managerBrief.mustRead.map(m=>signal(m.signalId)).filter(Boolean);
  const filtered=c.signals.filter(s=>(state.channel==='全部'||s.category===state.channel)&&(state.tier==='全部'||s.tier===state.tier));
  const list=state.channel==='全部'&&state.tier==='全部'?filtered.filter(s=>!mustIds.has(s.id)):filtered;
+ const recent=list.filter(s=>s.timeKind!=='context'), background=list.filter(s=>s.timeKind==='context');
  const status=c.managerBrief.channelStatus.find(s=>s.name===state.channel);
  const date=feed.publishedDate.split('-');
  return `<div class="edition-heading"><div><p class="label">${date[0]} / ${date[1]} / ${date[2]} · 每日精选</p><h1>今天，值得知道的事。</h1></div><button class="outline" data-report="${esc(c.brief.id)}">阅读本期完整简报 ↗</button></div>
@@ -36,7 +37,9 @@ function today() {
  <section class="feed-section" id="events"><div class="section-title"><h2>${state.channel==='全部'?'继续了解':esc(state.channel)+'情报'}</h2><span>${list.length} 条${state.channel==='全部'&&state.tier==='全部'?' · 重点之外的变化':''}</span></div>
  <div class="filter-bar"><div class="tabs" aria-label="情报频道">${['全部',...channels].map(c=>`<button data-channel="${c}" aria-pressed="${state.channel===c}" class="${state.channel===c?'selected':''}">${c}</button>`).join('')}</div><label class="tier-filter">层级 <select id="tier" aria-label="筛选情报层级">${['全部','必看','重要','雷达'].map(t=>`<option ${state.tier===t?'selected':''}>${t}</option>`).join('')}</select></label></div>
  ${status?`<p class="channel-note">${esc(status.note)} · ${esc(status.status)}</p>`:''}
- ${list.length?`<div class="story-list">${list.map(s=>card(s)).join('')}</div>`:empty('本期没有符合条件的内容',state.channel==='直销'?(status?.note||'本期未发布新的直销情报，历史内容仍可通过搜索查阅。'):'试试其他频道或切换情报层级。')}</section>`;
+ ${recent.length?`<div class="story-list">${recent.map(s=>card(s)).join('')}</div>`:''}
+ ${background.length?`<div class="section-title watch-heading"><h2>背景与深读</h2><span>${background.length} 篇 · 按原始日期标注</span></div><p class="channel-note">用财报、研究和已公布案例补全判断，不计作今天的新消息。</p><div class="story-list">${background.map(s=>card(s)).join('')}</div>`:''}
+ ${!list.length?empty('本期没有符合条件的内容',status?.note||'试试其他频道或切换情报层级。'):''}</section>`;
 }
 function watchlist() {
  const personal=allSignals().filter(s=>state.feedback[s.id]==='follow');
@@ -60,7 +63,8 @@ function render() {
  const fresh=feed.publishedDate===todayDate;
  $('#editionLabel').textContent=`最新一期 ${feed.publishedDate.slice(5).replace('-','.')}`;
  $('#freshness').classList.toggle('stale',!fresh);
- $('#freshness').textContent=fresh?`今天的简报已到 · ${feed.current.signals.length} 条情报 · 事实与判断在详情中分列`:`当前是 ${feed.publishedDate} 的简报，尚未收到今天的新一期。`;
+ const backgroundCount=feed.current.signals.filter(s=>s.timeKind==='context').length;
+ $('#freshness').textContent=fresh?`今天的简报已到 · ${feed.current.signals.length-backgroundCount} 条近期变化${backgroundCount?` · ${backgroundCount} 篇背景深读`:''}`:`当前是 ${feed.publishedDate} 的简报，尚未收到今天的新一期。`;
  if(state.query) $('#content').innerHTML=search();
  else if(state.view==='today') $('#content').innerHTML=today();
  else if(state.view==='briefs') $('#content').innerHTML=header('简报档案',`${feed.reports.length} 份完整简报 · 按日期回看事实、判断与来源`)+feed.reports.map(reportRow).join('');
@@ -70,11 +74,19 @@ function render() {
 function navigate(view,channel='全部') {state.view=views[view]?view:'today';state.channel=channel;state.tier='全部';state.query='';$('#search').value='';const hash=state.view==='today'&&channel!=='全部'?`channel/${encodeURIComponent(channel)}`:state.view;history.pushState(null,'',`#${hash}`);render();window.scrollTo({top:0,behavior:'instant'});}
 function openReader(label,body,hash) {returnFocus=document.activeElement;scrollBeforeReader=window.scrollY;$('#readerLabel').textContent=label;$('#readerBody').innerHTML=body;$('#reader').showModal();$('#reader').scrollTop=0;document.body.classList.add('reading');if(hash && location.hash!==`#${hash}`)history.pushState(null,'',`#${hash}`);$('#closeReader').focus();}
 function closeReader(fromRoute=false) {$('#reader').close();document.body.classList.remove('reading');if(!fromRoute)history.replaceState(null,'',`#${state.view}`);if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});window.scrollTo({top:scrollBeforeReader,behavior:'instant'});}
-function openSignal(id) {const s=signal(id);if(!s)return;openReader(`${s.date||feed.publishedDate} · ${s.category}`,`${tag(s)}<h1 id="readerTitle">${esc(s.title)}</h1><p class="reader-lead">${esc(s.summary)}</p><div class="reader-actions">${actions(s)}<button data-known="${esc(s.id)}">标为已读</button></div><section><h2>发生了什么</h2><p>${esc(s.change)}</p></section><section><h2>为什么重要 <small>分析判断</small></h2><p>${esc(s.impact)}</p></section><section><h2>值得关注</h2><p>${esc(s.recommendation)}</p></section><aside class="next-watch"><h2>什么变化值得再看</h2><p>${esc(s.tracking)}</p></aside><section><h2>来源与证据边界</h2><p class="evidence-boundary">${esc(s.statusLabel)}</p><ul class="sources">${(s.evidence||[]).map(e=>`<li><a href="${safeUrl(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.label)} ↗</a><span>${esc(e.note||e.type||'原始来源')}</span></li>`).join('')}</ul></section>`,`signal/${encodeURIComponent(id)}`);}
+function openSignal(id) {const s=signal(id);if(!s)return;openReader(`${s.timeLabel||s.date||feed.publishedDate} · ${s.category}`,`${tag(s)}<h1 id="readerTitle">${esc(s.title)}</h1><p class="reader-lead">${esc(s.summary)}</p><div class="reader-actions">${actions(s)}<button data-known="${esc(s.id)}">标为已读</button></div><section><h2>发生了什么</h2><p>${esc(s.change)}</p></section>${s.baseline?`<section><h2>与此前相比</h2><p>${esc(s.baseline)}</p></section>`:''}<section><h2>为什么重要 <small>分析判断</small></h2><p>${esc(s.impact)}</p></section><section><h2>怎样理解与使用</h2><p>${esc(s.recommendation)}</p></section><aside class="next-watch"><h2>什么变化值得再看</h2><p>${esc(s.tracking)}</p></aside><section><h2>来源与证据边界</h2><p class="evidence-boundary">${esc(s.statusLabel)}</p>${s.uncertainty?`<p>${esc(s.uncertainty)}</p>`:''}<ul class="sources">${(s.evidence||[]).map(e=>`<li><a href="${safeUrl(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.label)} ↗</a><span>${esc(e.note||e.type||'原始来源')}</span></li>`).join('')}</ul></section>`,`signal/${encodeURIComponent(id)}`);}
 function markdown(source) {
  const inline=t=>esc(t).replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1 ↗</a>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
  let result='',list=false;
- for(const line of source.split('\n')) {if(/^# /.test(line))continue;const item=line.match(/^(?:[-*]|\d+\.)\s+(.*)/);if(item){if(!list){result+='<ul>';list=true;}result+=`<li>${inline(item[1])}</li>`;continue;}if(list){result+='</ul>';list=false;}if(!line.trim())continue;const h=line.match(/^(#{2,4})\s+(.*)/);if(h)result+=`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;else if(line.startsWith('>'))result+=`<blockquote>${inline(line.replace(/^>\s*/,''))}</blockquote>`;else if(/^---+$/.test(line))result+='<hr>';else result+=`<p>${inline(line)}</p>`;}
+ const lines=source.split('\n'), cells=line=>line.trim().replace(/^\||\|$/g,'').split('|').map(x=>x.trim());
+ for(let i=0;i<lines.length;i++){const line=lines[i];if(/^# /.test(line))continue;
+ if(line.trim().startsWith('|')&&/^\s*\|?\s*:?-{3,}/.test(lines[i+1]||'')){
+  if(list){result+='</ul>';list=false;}
+  result+='<div class="table-scroll"><table><thead><tr>'+cells(line).map(x=>`<th>${inline(x)}</th>`).join('')+'</tr></thead><tbody>';i++;
+  while((lines[i+1]||'').trim().startsWith('|'))result+='<tr>'+cells(lines[++i]).map(x=>`<td>${inline(x)}</td>`).join('')+'</tr>';
+  result+='</tbody></table></div>';continue;
+ }
+ const item=line.match(/^(?:[-*]|\d+\.)\s+(.*)/);if(item){if(!list){result+='<ul>';list=true;}result+=`<li>${inline(item[1])}</li>`;continue;}if(list){result+='</ul>';list=false;}if(!line.trim())continue;const h=line.match(/^(#{2,4})\s+(.*)/);if(h)result+=`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;else if(line.startsWith('>'))result+=`<blockquote>${inline(line.replace(/^>\s*/,''))}</blockquote>`;else if(/^---+$/.test(line))result+='<hr>';else result+=`<p>${inline(line)}</p>`;}
  return result+(list?'</ul>':'');
 }
 function openReport(id) {const r=feed.reports.find(r=>r.id===id);if(!r){toast('这份简报暂时没有全文。');return;}openReader(`${r.date} · 完整简报`,`<h1 id="readerTitle">${esc(r.title)}</h1><div class="report-prose">${markdown(r.body)}</div>`,`report/${encodeURIComponent(id)}`);}
