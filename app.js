@@ -9,16 +9,18 @@ const views = {today:'今日精选',briefs:'简报档案',saved:'稍后阅读',w
 const channels = ['中国','世界','AI','直销'];
 const savedRaw = read('intel-saved',[]), feedbackRaw = read('intel-feedback',{});
 const state = {view:'today',channel:'全部',tier:'全部',query:'',saved:new Set(Array.isArray(savedRaw)?savedRaw:[]),feedback:feedbackRaw && typeof feedbackRaw==='object'?feedbackRaw:{}, snapshots:read('intel-snapshots',{})};
+const readRaw=read('intel-read',[]);
+state.read=new Set([...(Array.isArray(readRaw)?readRaw:[]),...Object.keys(state.feedback).filter(id=>state.feedback[id]==='known')]);
 if (!state.snapshots || typeof state.snapshots !== 'object') state.snapshots={};
 let returnFocus, scrollBeforeReader=0;
 function toast(message) {$('#toast').textContent=message; $('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),2600);}
-function persist() {try {localStorage.setItem('intel-saved',JSON.stringify([...state.saved]));localStorage.setItem('intel-feedback',JSON.stringify(state.feedback));localStorage.setItem('intel-snapshots',JSON.stringify(state.snapshots));}catch {toast('浏览器无法保存，下次打开时这些标记可能丢失。');}}
+function persist() {try {localStorage.setItem('intel-read',JSON.stringify([...state.read]));localStorage.setItem('intel-saved',JSON.stringify([...state.saved]));localStorage.setItem('intel-feedback',JSON.stringify(state.feedback));localStorage.setItem('intel-snapshots',JSON.stringify(state.snapshots));}catch {toast('浏览器无法保存，下次打开时这些标记可能丢失。');}}
 function allSignals() {return [...new Map([...Object.values(state.snapshots),...(feed.signals||[]),...feed.current.signals].map(s=>[s.id,s])).values()];}
 function signal(id) {return allSignals().find(s=>s.id===id);}
 function remember(s) {state.snapshots[s.id]={...s,date:s.date||feed.publishedDate};}
 function tag(s) {return `<span class="tag ${s.tier==='雷达'?'radar':''}">${esc(s.category)} · ${esc(s.tier||'情报')}</span>`;}
 function actions(s) {const follow=state.feedback[s.id]==='follow';return `<button data-save="${esc(s.id)}" aria-pressed="${state.saved.has(s.id)}">${state.saved.has(s.id)?'已留存':'稍后读'}</button><button data-follow="${esc(s.id)}" aria-pressed="${follow}">${follow?'已关注':'关注后续'}</button>`;}
-function card(s,{featured=false}={}) {return `<article class="story ${featured?'lead-story':''} ${state.feedback[s.id]==='known'?'known':''}"><div class="story-meta">${tag(s)}<span>${esc(s.statusLabel||'')}</span></div><button class="story-open" data-signal="${esc(s.id)}"><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p></button>${featured?`<div class="why"><span>为什么重要</span><p>${esc(s.impact)}</p></div>`:''}<div class="story-bottom"><span>${s.evidence?.length||0} 个来源${state.feedback[s.id]==='known'?' · 已读':''}</span><div>${actions(s)}<button class="read-link" data-signal="${esc(s.id)}">阅读全文 ↗</button></div></div></article>`;}
+function card(s,{featured=false}={}) {return `<article class="story ${featured?'lead-story':''} ${state.read.has(s.id)?'known':''}"><div class="story-meta">${tag(s)}<span>${esc(s.statusLabel||'')}</span></div><button class="story-open" data-signal="${esc(s.id)}"><h3>${esc(s.title)}</h3><p>${esc(s.summary)}</p></button>${featured?`<div class="why"><span>为什么重要</span><p>${esc(s.impact)}</p></div>`:''}<div class="story-bottom"><span>${s.evidence?.length||0} 个来源${state.read.has(s.id)?' · 已读':''}</span><div>${actions(s)}<button class="read-link" data-signal="${esc(s.id)}">阅读全文 ↗</button></div></div></article>`;}
 function empty(title,detail) {return `<div class="empty"><span aria-hidden="true">—</span><h3>${esc(title)}</h3><p>${esc(detail)}</p><button data-view="today">返回今日精选</button></div>`;}
 function header(title,detail='') {return `<div class="page-heading"><h1>${esc(title)}</h1>${detail?`<p>${esc(detail)}</p>`:''}</div>`;}
 function reportRow(r) {const summary=r.body.split('\n').find(l=>l.length>45&&!/^[#>\-|]/.test(l))||'';return `<button class="report-row" data-report="${esc(r.id)}"><time>${esc(r.date)}</time><div><h3>${esc(r.title.split('｜')[0])}</h3><p>${esc(summary)}</p></div><span>读全文 ↗</span></button>`;}
@@ -83,7 +85,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  if(b.dataset.signal)return openSignal(b.dataset.signal);
  if(b.dataset.report)return openReport(b.dataset.report);
  const id=b.dataset.save||b.dataset.follow||b.dataset.known;
- if(id){const s=signal(id);if(!s)return;remember(s);if(b.dataset.save){state.saved.has(id)?state.saved.delete(id):state.saved.add(id);toast(state.saved.has(id)?'已加入稍后阅读':'已移出稍后阅读');}else if(b.dataset.follow){state.feedback[id]=state.feedback[id]==='follow'?'':'follow';toast(state.feedback[id]==='follow'?'已加入持续关注':'已取消关注');}else {state.feedback[id]='known';toast('已标为已读');}persist();render();if($('#reader').open){$('#readerBody .reader-actions').innerHTML=actions(s)+`<button data-known="${esc(id)}">标为已读</button>`;}return;}
+ if(id){const s=signal(id);if(!s)return;remember(s);if(b.dataset.save){state.saved.has(id)?state.saved.delete(id):state.saved.add(id);toast(state.saved.has(id)?'已加入稍后阅读':'已移出稍后阅读');}else if(b.dataset.follow){state.feedback[id]=state.feedback[id]==='follow'?'':'follow';toast(state.feedback[id]==='follow'?'已加入持续关注':'已取消关注');}else {state.read.add(id);toast('已标为已读');}persist();render();if($('#reader').open){$('#readerBody .reader-actions').innerHTML=actions(s)+`<button data-known="${esc(id)}">标为已读</button>`;}return;}
 });
 $('#content').addEventListener('change',e=>{if(e.target.id==='tier'){state.tier=e.target.value;render();}});
 $('#search').addEventListener('input',e=>{state.query=e.target.value.trim();render();});
@@ -91,7 +93,7 @@ document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLower
 $('#closeReader').addEventListener('click',()=>closeReader());
 $('#reader').addEventListener('cancel',e=>{e.preventDefault();closeReader();});
 $('#reader').addEventListener('click',e=>{if(e.target===$('#reader')){const r=$('#reader').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeReader();}});
-window.addEventListener('popstate',route);
+window.addEventListener('hashchange',route);
 async function refresh(manual=false) {
  $('#syncState').textContent='正在检查…';
  const remote=location.hostname.endsWith('chatgpt.site');
