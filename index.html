@@ -6,16 +6,16 @@
 <link rel="stylesheet" href="reader.css"></head><body>
 <a class="skip" href="#main">跳到内容</a>
 <aside class="sidebar">
-<a href="#today" class="brand"><span class="brand-mark">情</span><span>情报中枢<small>你的每日阅读</small></span></a>
+<a href="#today" class="brand"><span class="brand-mark">情</span><span>情报中枢<small>变化与连续判断</small></span></a>
 <nav aria-label="主导航" id="nav">
 <button data-view="today" class="active"><span>今日精选</span><span aria-hidden="true">↗</span></button>
 <button data-view="briefs"><span>简报档案</span><span id="archiveCount"></span></button>
 <button data-view="saved"><span>稍后阅读</span><span id="savedCount"></span></button>
-<button data-view="watchlist"><span>持续关注</span><span id="followCount"></span></button></nav>
+<button data-view="watchlist"><span>持续研判</span><span id="followCount"></span></button></nav>
 <div class="channel-nav"><p class="label">关注的领域</p><div id="channelNav"></div></div>
 <div class="sidebar-bottom"><span class="edition-dot"></span><span id="editionLabel">载入简报中</span><small>每日 05:00 开始更新</small></div></aside>
 <main id="main">
-<header class="topbar"><div class="breadcrumb">情报中枢 <span>/</span> <b id="viewLabel">今日精选</b></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索全部简报与事件" aria-label="搜索全部简报与事件"><kbd>Ctrl K</kbd></label></header>
+<header class="topbar"><div class="breadcrumb">情报中枢 <span>/</span> <b id="viewLabel">今日精选</b></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="搜索事件、研判与简报" aria-label="搜索事件、研判与简报"><kbd>Ctrl K</kbd></label></header>
 <div id="freshness" class="freshness" role="status"></div><div id="content"></div>
 <footer class="footer"><span>看见变化，留下判断。</span><button id="refresh">检查更新 ↻</button><span id="syncState"></span></footer></main>
 <dialog id="reader" aria-labelledby="readerTitle"><div class="reader-toolbar"><span id="readerLabel"></span><button id="closeReader" aria-label="关闭阅读">关闭 ×</button></div><div id="readerBody" class="reader-body"></div></dialog>

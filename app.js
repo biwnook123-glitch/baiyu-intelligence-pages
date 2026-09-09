@@ -5,13 +5,28 @@ const esc = (v='') => String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','
 const safeUrl = u => /^https:\/\//i.test(u || '') ? esc(u) : '#';
 const read = (k,fallback) => {try {return JSON.parse(localStorage.getItem(k)) ?? fallback;} catch {return fallback;}};
 let feed = window.INTEL_FEED;
-const views = {today:'今日精选',briefs:'简报档案',saved:'稍后阅读',watchlist:'持续关注'};
+const views = {today:'今日精选',briefs:'简报档案',saved:'稍后阅读',watchlist:'持续研判'};
 const channels = ['中国','世界','AI','直销'];
 const savedRaw = read('intel-saved',[]), feedbackRaw = read('intel-feedback',{});
 const state = {view:'today',channel:'全部',tier:'全部',query:'',saved:new Set(Array.isArray(savedRaw)?savedRaw:[]),feedback:feedbackRaw && typeof feedbackRaw==='object'?feedbackRaw:{}, snapshots:read('intel-snapshots',{})};
 const readRaw=read('intel-read',[]);
 state.read=new Set([...(Array.isArray(readRaw)?readRaw:[]),...Object.keys(state.feedback).filter(id=>state.feedback[id]==='known')]);
 if (!state.snapshots || typeof state.snapshots !== 'object') state.snapshots={};
+const followedThemes=read('intel-theme-follows',[]),seenThemes=read('intel-theme-seen',{});
+state.themeFollows=new Set(Array.isArray(followedThemes)?followedThemes:[]);
+state.themeSeen=seenThemes&&typeof seenThemes==='object'&&!Array.isArray(seenThemes)?seenThemes:{};
+function persistThemes(){try{localStorage.setItem('intel-theme-follows',JSON.stringify([...state.themeFollows]));localStorage.setItem('intel-theme-seen',JSON.stringify(state.themeSeen));}catch{toast('当前浏览器无法保存主题标记。');}}
+const themes=()=>feed.themes||[];
+const latest=t=>t.revisions[t.revisions.length-1];
+function themeAction(t){return `<button data-theme-follow="${esc(t.id)}" aria-pressed="${state.themeFollows.has(t.id)}">${state.themeFollows.has(t.id)?'已关注这条线':'关注这条线'}</button>`;}
+function themeCard(t){const r=latest(t),unread=state.themeFollows.has(t.id)&&state.themeSeen[t.id]!==r.id;return `<article class="theme-card"><div class="story-meta"><span class="tag">${esc(t.scope)}</span><span>${esc(r.date)} · ${esc(r.type)}${unread?' · 有未读判断':''}</span></div><button class="story-open" data-theme="${esc(t.id)}"><h3>${esc(t.title)}</h3><p>${esc(r.headline)}</p></button><div class="story-bottom"><span>${t.revisions.length} 次判断记录</span><div>${themeAction(t)}<button class="read-link" data-theme="${esc(t.id)}">读懂这条线 ↗</button></div></div></article>`;}
+function relatedThemes(id){return themes().filter(t=>t.revisions.some(r=>r.facts.some(f=>f.signalId===id)));}
+function themeLinks(list){return list.map(t=>`<button class="topic-link" data-theme="${esc(t.id)}">${esc(t.title)} ↗</button>`).join('');}
+function openTheme(id){const t=themes().find(t=>t.id===id);if(!t)return;const r=latest(t);state.themeSeen[id]=r.id;persistThemes();render();
+ const sources=f=>f.sources.map(s=>`<a href="${safeUrl(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.label)} ↗</a>`).join(' · ');
+ const revision=(v)=>`<p class="evidence-boundary">${esc(v.date)} · ${esc(v.type)}</p><h2>${esc(v.headline)}</h2><p>${esc(v.judgment)}</p><p><b>本次变化：</b>${esc(v.change)}</p><section><h2>判断依据</h2>${v.facts.map(f=>`<div class="dossier-fact"><p>${esc(f.text)}</p><p class="source-caption">${esc(f.sourceDate)} · ${sources(f)}</p><button class="read-link" data-signal="${esc(f.signalId)}">查看事件与背景 ↗</button></div>`).join('')}</section><section><h2>把这些变化放在一起看 <small>分析判断</small></h2>${v.reasoning.map(p=>`<h3>${esc(p.title)}</h3><p>${esc(p.text)}</p>`).join('')}</section><section><h2>另一种解释</h2><p>${esc(v.alternative)}</p></section><section><h2>目前还不知道</h2><p>${esc(v.unknowns)}</p></section><aside class="next-watch"><h2>什么证据会改变判断</h2>${v.triggers.map(p=>`<h3>${esc(p.question)}</h3><p>${esc(p.condition)}</p><p class="source-caption">下一步核对：${esc(p.sourceHint)}</p>`).join('')}</aside>`;
+ openReader(`${r.date} · 持续研判`,`<p class="label">${esc(t.scope)}</p><h1 id="readerTitle">${esc(t.title)}</h1><p class="reader-lead">${esc(t.question)}</p><div class="reader-actions">${themeAction(t)}</div>${revision(r)}<section><h2>判断记录</h2>${t.revisions.length===1?'<p>本次首次建立基线。后续补充与修正会保留在这里；目前尚无跨期修订。</p>':t.revisions.slice(0,-1).reverse().map(v=>`<details class="revision"><summary>${esc(v.date)} · ${esc(v.type)} · ${esc(v.headline)}</summary>${revision(v)}</details>`).join('')}</section>${t.related?.length?`<section><h2>相关问题</h2>${themeLinks(themes().filter(x=>t.related.includes(x.id)))}</section>`:''}`,`theme/${encodeURIComponent(id)}`);
+}
 let returnFocus, scrollBeforeReader=0;
 function toast(message) {$('#toast').textContent=message; $('#toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('#toast').classList.remove('show'),2600);}
 function persist() {try {localStorage.setItem('intel-read',JSON.stringify([...state.read]));localStorage.setItem('intel-saved',JSON.stringify([...state.saved]));localStorage.setItem('intel-feedback',JSON.stringify(state.feedback));localStorage.setItem('intel-snapshots',JSON.stringify(state.snapshots));}catch {toast('浏览器无法保存，下次打开时这些标记可能丢失。');}}
@@ -34,6 +49,7 @@ function today() {
  const date=feed.publishedDate.split('-');
  return `<div class="edition-heading"><div><p class="label">${date[0]} / ${date[1]} / ${date[2]} · 每日精选</p><h1>今天，值得知道的事。</h1></div><button class="outline" data-report="${esc(c.brief.id)}">阅读本期完整简报 ↗</button></div>
  ${state.channel==='全部'&&state.tier==='全部'?`<section class="priority"><div class="section-title"><h2>先看重点</h2><span>${priority.length} 件事 · 约 ${Math.max(1,Math.ceil(priority.reduce((n,s)=>n+s.summary.length+s.impact.length,0)/350))} 分钟</span></div><div class="priority-grid">${priority.map(s=>card(s,{featured:true})).join('')}</div></section>`:''}
+ ${state.channel==='全部'&&state.tier==='全部'&&themes().length?`<section class="theme-overview"><div class="section-title"><h2>把变化连起来看</h2><button class="read-link" data-view="watchlist">全部持续研判 ↗</button></div><div class="theme-grid">${themes().filter(t=>latest(t).type!=='结束追踪').map(themeCard).join('')}</div></section>`:''}
  <section class="feed-section" id="events"><div class="section-title"><h2>${state.channel==='全部'?'继续了解':esc(state.channel)+'情报'}</h2><span>${list.length} 条${state.channel==='全部'&&state.tier==='全部'?' · 重点之外的变化':''}</span></div>
  <div class="filter-bar"><div class="tabs" aria-label="情报频道">${['全部',...channels].map(c=>`<button data-channel="${c}" aria-pressed="${state.channel===c}" class="${state.channel===c?'selected':''}">${c}</button>`).join('')}</div><label class="tier-filter">层级 <select id="tier" aria-label="筛选情报层级">${['全部','必看','重要','雷达'].map(t=>`<option ${state.tier===t?'selected':''}>${t}</option>`).join('')}</select></label></div>
  ${status?`<p class="channel-note">${esc(status.note)} · ${esc(status.status)}</p>`:''}
@@ -44,18 +60,19 @@ function today() {
 function watchlist() {
  const personal=allSignals().filter(s=>state.feedback[s.id]==='follow');
  const notes=(feed.current.watchlist||[]).map((w,i)=>({id:w.id||`watch-${i}`,title:w.title||w.topic,change:w.change||w.note,trigger:w.trigger||w.note,baseline:w.baseline||''}));
- return header('持续关注','这里保留值得回头再看的变化。个人标记保存在当前浏览器。')+`<div class="section-title"><h2>我关注的事件</h2><span>${personal.length} 条</span></div>`+(personal.length?`<div class="story-list">${personal.map(s=>`<div>${card(s)}<p class="follow-trigger"><b>下一步看什么</b> ${esc(s.tracking)}</p></div>`).join('')}</div>`:empty('还没有关注的事件','在事件下点“关注后续”，即可在这里保留事件和下一观察点。'))+`<div class="section-title watch-heading"><h2>本期观察点</h2><span>随每日简报更新</span></div><div class="watch-grid">${notes.map(w=>`<article class="watch-note"><span class="label">持续观察</span><h3>${esc(w.title)}</h3><p>${esc(w.change)}</p>${w.baseline?`<p>${esc(w.baseline)}</p>`:''}</article>`).join('')}</div>`;
+ const ordered=[...themes()].sort((a,b)=>Number(state.themeFollows.has(b.id))-Number(state.themeFollows.has(a.id)));
+ return header('持续研判','重要问题的当前判断、证据与后续修正。关注标记仅保存在当前浏览器。')+`<div class="theme-grid">${ordered.map(themeCard).join('')}</div><div class="section-title watch-heading"><h2>我关注的事件</h2><span>${personal.length} 条</span></div>`+(personal.length?`<div class="story-list">${personal.map(s=>`<div>${card(s)}<p class="follow-trigger"><b>下一步看什么</b> ${esc(s.tracking)}</p></div>`).join('')}</div>`:'<p class="channel-note">事件下的“关注后续”会将原文与观察点保留在这里。</p>')+`<details class="edition-notes"><summary>本期其他观察点</summary><div class="watch-grid">${notes.map(w=>`<article class="watch-note"><h3>${esc(w.title)}</h3><p>${esc(w.change)}</p>${w.baseline?`<p>${esc(w.baseline)}</p>`:''}<p><b>下一验证点：</b>${esc(w.trigger)}</p></article>`).join('')}</div></details>`;
 }
 function search() {
  const q=state.query.trim().toLowerCase(), matches=v=>JSON.stringify(v).toLowerCase().includes(q);
- const signals=allSignals().filter(matches), reports=feed.reports.filter(matches);
- return header('搜索结果',`“${state.query}” · ${signals.length} 个事件，${reports.length} 份简报`)+(signals.length?`<div class="section-title"><h2>事件</h2></div><div class="story-list">${signals.map(s=>card(s)).join('')}</div>`:'')+(reports.length?`<div class="section-title watch-heading"><h2>简报全文</h2></div>${reports.map(reportRow).join('')}`:'')+(!signals.length&&!reports.length?empty('没有找到相关内容','试试更短的关键词、公司名或政策名称。'):'');
+ const signals=allSignals().filter(matches), reports=feed.reports.filter(matches),foundThemes=themes().filter(matches);
+ return header('搜索结果',`“${state.query}” · ${foundThemes.length} 条研判，${signals.length} 个事件，${reports.length} 份简报`)+(foundThemes.length?`<div class="section-title"><h2>持续研判</h2></div><div class="theme-grid">${foundThemes.map(themeCard).join('')}</div>`:'')+(signals.length?`<div class="section-title watch-heading"><h2>事件</h2></div><div class="story-list">${signals.map(s=>card(s)).join('')}</div>`:'')+(reports.length?`<div class="section-title watch-heading"><h2>简报全文</h2></div>${reports.map(reportRow).join('')}`:'')+(!signals.length&&!reports.length&&!foundThemes.length?empty('没有找到相关内容','试试更短的关键词、公司名或政策名称。'):'');
 }
 function render() {
  if (!feed?.current?.signals) {$('#content').innerHTML=empty('简报暂时无法载入','请检查网络后点击下方“检查更新”。');return;}
  $('#archiveCount').textContent=feed.reports.length;
  $('#savedCount').textContent=state.saved.size;
- $('#followCount').textContent=allSignals().filter(s=>state.feedback[s.id]==='follow').length;
+ $('#followCount').textContent=themes().length;
  $('#channelNav').innerHTML=channels.map(c=>`<button data-channel="${c}" class="${state.view==='today'&&state.channel===c?'selected':''}"><span>${c}</span><small>${feed.current.signals.filter(s=>s.category===c).length||'—'}</small></button>`).join('');
  $('#viewLabel').textContent=state.query?'搜索结果':views[state.view];
  document.querySelectorAll('#nav button').forEach(b=>{b.classList.toggle('active',!state.query&&b.dataset.view===state.view);if(!state.query&&b.dataset.view===state.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
@@ -72,9 +89,9 @@ function render() {
  else {const items=allSignals().filter(s=>state.saved.has(s.id));const missing=[...state.saved].filter(id=>!signal(id));$('#content').innerHTML=header('稍后阅读','留存的事件跨期保留。收藏仅保存在当前浏览器。')+(items.length?`<div class="story-list">${items.map(s=>card(s)).join('')}</div>`:empty('给值得细读的内容留个位置','在事件下点“稍后读”，随时回来接着看。'))+(missing.length?`<div class="channel-note">有 ${missing.length} 条旧版收藏缺少事件快照。可在简报档案中按关键词找回正文。</div>`:'');}
 }
 function navigate(view,channel='全部') {state.view=views[view]?view:'today';state.channel=channel;state.tier='全部';state.query='';$('#search').value='';const hash=state.view==='today'&&channel!=='全部'?`channel/${encodeURIComponent(channel)}`:state.view;history.pushState(null,'',`#${hash}`);render();window.scrollTo({top:0,behavior:'instant'});}
-function openReader(label,body,hash) {returnFocus=document.activeElement;scrollBeforeReader=window.scrollY;$('#readerLabel').textContent=label;$('#readerBody').innerHTML=body;$('#reader').showModal();$('#reader').scrollTop=0;document.body.classList.add('reading');if(hash && location.hash!==`#${hash}`)history.pushState(null,'',`#${hash}`);$('#closeReader').focus();}
+function openReader(label,body,hash) {if(!$('#reader').open){returnFocus=document.activeElement;scrollBeforeReader=window.scrollY;}$('#readerLabel').textContent=label;$('#readerBody').innerHTML=body;$('#reader').showModal();$('#reader').scrollTop=0;document.body.classList.add('reading');if(hash && location.hash!==`#${hash}`)history.pushState(null,'',`#${hash}`);$('#closeReader').focus();}
 function closeReader(fromRoute=false) {$('#reader').close();document.body.classList.remove('reading');if(!fromRoute)history.replaceState(null,'',`#${state.view}`);if(returnFocus?.isConnected)returnFocus.focus({preventScroll:true});window.scrollTo({top:scrollBeforeReader,behavior:'instant'});}
-function openSignal(id) {const s=signal(id);if(!s)return;openReader(`${s.timeLabel||s.date||feed.publishedDate} · ${s.category}`,`${tag(s)}<h1 id="readerTitle">${esc(s.title)}</h1><p class="reader-lead">${esc(s.summary)}</p><div class="reader-actions">${actions(s)}<button data-known="${esc(s.id)}">标为已读</button></div><section><h2>发生了什么</h2><p>${esc(s.change)}</p></section>${s.baseline?`<section><h2>与此前相比</h2><p>${esc(s.baseline)}</p></section>`:''}<section><h2>为什么重要 <small>分析判断</small></h2><p>${esc(s.impact)}</p></section><section><h2>怎样理解与使用</h2><p>${esc(s.recommendation)}</p></section><aside class="next-watch"><h2>什么变化值得再看</h2><p>${esc(s.tracking)}</p></aside><section><h2>来源与证据边界</h2><p class="evidence-boundary">${esc(s.statusLabel)}</p>${s.uncertainty?`<p>${esc(s.uncertainty)}</p>`:''}<ul class="sources">${(s.evidence||[]).map(e=>`<li><a href="${safeUrl(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.label)} ↗</a><span>${esc(e.note||e.type||'原始来源')}</span></li>`).join('')}</ul></section>`,`signal/${encodeURIComponent(id)}`);}
+function openSignal(id) {const s=signal(id);if(!s)return;openReader(`${s.timeLabel||s.date||feed.publishedDate} · ${s.category}`,`${tag(s)}<h1 id="readerTitle">${esc(s.title)}</h1><p class="reader-lead">${esc(s.summary)}</p><div class="reader-actions">${actions(s)}<button data-known="${esc(s.id)}">标为已读</button></div>${relatedThemes(id).length?`<aside class="related-themes"><span>这件事关联的长期问题</span>${themeLinks(relatedThemes(id))}</aside>`:''}<section><h2>发生了什么</h2><p>${esc(s.change)}</p></section>${s.baseline?`<section><h2>与此前相比</h2><p>${esc(s.baseline)}</p></section>`:''}<section><h2>为什么重要 <small>分析判断</small></h2><p>${esc(s.impact)}</p></section><section><h2>怎样理解与使用</h2><p>${esc(s.recommendation)}</p></section><aside class="next-watch"><h2>什么变化值得再看</h2><p>${esc(s.tracking)}</p></aside><section><h2>来源与证据边界</h2><p class="evidence-boundary">${esc(s.statusLabel)}</p>${s.uncertainty?`<p>${esc(s.uncertainty)}</p>`:''}<ul class="sources">${(s.evidence||[]).map(e=>`<li><a href="${safeUrl(e.url)}" target="_blank" rel="noopener noreferrer">${esc(e.label)} ↗</a><span>${esc(e.note||e.type||'原始来源')}</span></li>`).join('')}</ul></section>`,`signal/${encodeURIComponent(id)}`);}
 function markdown(source) {
  const inline=t=>esc(t).replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1 ↗</a>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
  let result='',list=false;
@@ -90,10 +107,12 @@ function markdown(source) {
  return result+(list?'</ul>':'');
 }
 function openReport(id) {const r=feed.reports.find(r=>r.id===id);if(!r){toast('这份简报暂时没有全文。');return;}openReader(`${r.date} · 完整简报`,`<h1 id="readerTitle">${esc(r.title)}</h1><div class="report-prose">${markdown(r.body)}</div>`,`report/${encodeURIComponent(id)}`);}
-function route() {if($('#reader').open)closeReader(true);const [kind,id]=location.hash.slice(1).split('/');if(kind==='signal'){render();openSignal(decodeURIComponent(id||''));}else if(kind==='report'){render();openReport(decodeURIComponent(id||''));}else {state.query='';$('#search').value='';state.view=views[kind]?kind:'today';state.channel=kind==='channel'&&channels.includes(decodeURIComponent(id||''))?decodeURIComponent(id):'全部';render();}}
+function route() {if($('#reader').open)closeReader(true);const [kind,id]=location.hash.slice(1).split('/');if(kind==='signal'){render();openSignal(decodeURIComponent(id||''));}else if(kind==='theme'){render();openTheme(decodeURIComponent(id||''));}else if(kind==='report'){render();openReport(decodeURIComponent(id||''));}else {state.query='';$('#search').value='';state.view=views[kind]?kind:'today';state.channel=kind==='channel'&&channels.includes(decodeURIComponent(id||''))?decodeURIComponent(id):'全部';render();}}
 document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
  if(b.dataset.view)return navigate(b.dataset.view);
  if(b.dataset.channel)return navigate('today',b.dataset.channel);
+ if(b.dataset.theme)return openTheme(b.dataset.theme);
+ if(b.dataset.themeFollow){const id=b.dataset.themeFollow,t=themes().find(t=>t.id===id);if(!t)return;state.themeFollows.has(id)?state.themeFollows.delete(id):state.themeFollows.add(id);persistThemes();render();if($('#reader').open&&location.hash===`#theme/${encodeURIComponent(id)}`)$('#readerBody .reader-actions').innerHTML=themeAction(t);toast(state.themeFollows.has(id)?'已关注；新判断会在持续研判中标记':'已取消主题关注');return;}
  if(b.dataset.signal)return openSignal(b.dataset.signal);
  if(b.dataset.report)return openReport(b.dataset.report);
  const id=b.dataset.save||b.dataset.follow||b.dataset.known;
